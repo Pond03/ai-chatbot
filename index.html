@@ -1,0 +1,294 @@
+<!DOCTYPE html> 
+<html lang="th" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Chat – Script Style</title>
+
+<!-- 🔹 Favicon: ใช้ PNG และ cache-buster -->
+<link rel="icon" type="image/png" href="/chatbot.png?v=1"/>
+
+<style>
+  :root{
+    --bg:#f6f7fb; --panel:#ffffff; --text:#0f172a; --sub:#64748b;
+    --border:#e6e8ef; --accent:#2563eb; --shadow:0 10px 30px rgba(15,23,42,.08);
+    --frame:20px; --col:260px; --panel-pad:16px; --radius:16px;
+    --me-bg:#e6f0ff; --me-fg:#0f172a; --ai-bg:#f1f5f9; --ai-fg:#0f172a;
+    --placeholder:#94a3b8;
+    --brand-ink:#0f172a;
+    --brand-ink-dark:#e6eaf3;
+  }
+  [data-theme="dark"]{
+    --bg:#0c1220; --panel:#0f1629; --text:#e6eaf3; --sub:#93a4c3;
+    --border:#1e2742; --accent:#60a5fa; --shadow:0 10px 30px rgba(0,0,0,.55);
+    --me-bg:#1e2a4a; --me-fg:#e6eaf3; --ai-bg:#121a2f; --ai-fg:#e6eaf3;
+    --placeholder:#93a4c3;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html, body { height:100%; }
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+    overflow:hidden;
+  }
+
+  /* Layout */
+  .app{
+    display:grid;
+    grid-template-columns: var(--col) 1fr var(--col);
+    gap: var(--frame);
+    height:100vh;
+    padding: var(--frame);
+    overflow:hidden;
+  }
+  .sidebar, .right, .topbar, .stage{
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .sidebar, .right{
+    padding: var(--panel-pad);
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    min-width:0;
+  }
+
+  /* ===== Brand Logo ===== */
+  .brand{
+    display:flex;align-items:center;gap:10px;
+    font-weight:800;margin-bottom:12px;
+    text-decoration:none;color:var(--brand-ink);
+  }
+  [data-theme="dark"] .brand{ color:var(--brand-ink-dark); }
+
+  .logo{
+    width:28px;height:28px;
+    display:block;object-fit:contain;
+    filter: drop-shadow(0 4px 10px rgba(15,23,42,.12));
+    transition: transform .18s ease;
+  }
+  .brand:hover .logo{ transform: translateY(-1px) scale(1.03); }
+
+  .nav{display:flex;flex-direction:column;gap:8px}
+  .item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer}
+  .item:hover{background:#f1f5ff}
+  .item.active{background:#e6efff;color:var(--accent);font-weight:600}
+  .spacer{flex:1}
+
+  .theme{border-top:1px solid var(--border);padding:12px 0 8px;margin-top:auto;}
+  .theme-toggle{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:12px;padding:8px 10px;
+  }
+  .switch{position:relative;width:56px;height:28px;border-radius:999px;border:1px solid var(--border); background:#eef2f7; cursor:pointer;}
+  [data-theme="dark"] .switch{ background:#1b2440; }
+  .thumb{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:999px;background:#fff; transition:left .2s ease;}
+  [data-theme="dark"] .thumb{ left:31px; }
+  .icons{display:flex;gap:6px;align-items:center;color:var(--sub);font-size:14px}
+  .icons .on{display:none}
+  [data-theme="dark"] .icons .on{display:inline}
+  [data-theme="dark"] .icons .off{display:none}
+
+  .footer{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px;border-top:1px solid var(--border)}
+  .avatar{width:28px;height:28px;border-radius:999px;background:linear-gradient(135deg,#22c55e,#06b6d4)}
+
+  /* Center */
+  .center{display:flex;flex-direction:column;gap: var(--frame);min-width:0;min-height:0;}
+  .topbar{height:52px;display:flex;align-items:center;padding:0 16px;font-weight:600;flex-shrink:0;}
+  .stage{flex:1 1 auto;padding:40px;display:flex;flex-direction:column;justify-content:flex-start;min-width:0;min-height:0;}
+  .welcome{text-align:center;margin:12px 0 24px;flex-shrink:0;}
+  .welcome h1{font-size:34px;margin-bottom:8px}
+  .welcome p{color:var(--sub);font-size:1rem}
+
+  .messages{
+    flex:1 1 auto;display:flex;flex-direction:column;gap:6px;
+    overflow:auto;padding-bottom:8px;min-width:0;min-height:0;
+    scrollbar-width:thin;scrollbar-color:#d0d4db transparent;
+  }
+  .messages.scrolling{scrollbar-color:#9aa0a8 transparent;}
+  .messages::-webkit-scrollbar{width:6px;height:6px;}
+  .messages::-webkit-scrollbar-track{background:transparent;}
+  .messages::-webkit-scrollbar-thumb{background:#d0d4db;border-radius:10px;transition:background .2s ease;}
+  .messages:hover::-webkit-scrollbar-thumb,
+  .messages.scrolling::-webkit-scrollbar-thumb{background:#9aa0a8;}
+
+  .inputbar{background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);flex-shrink:0;overflow:hidden;}
+  .input-top{display:flex;align-items:center;gap:10px;padding:10px 12px;}
+  .input-top input{flex:1;border:none;background:transparent;color:var(--text);padding:10px 4px;font-size:0.98rem;outline:none;min-width:0;}
+  .input-top input::placeholder{ color: var(--placeholder); }
+  .send{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;}
+  .input-sep{height:1px;background:var(--border);}
+  .input-tools{display:flex;align-items:center;gap:10px;padding:8px 10px;}
+  .tool{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:999px;padding:6px 12px;background:transparent;color:var(--sub);font-size:.92rem;cursor:pointer;}
+  .tool:hover{background:#f8fafc}
+
+  .right{ gap: var(--frame); }
+  .right h4{margin:0;}
+  .row{border:1px solid var(--border);border-radius:12px;padding:10px 12px;}
+  .meta{display:flex;align-items:center;gap:8px;font-weight:600}
+  .dot{width:8px;height:8px;border-radius:999px;background:#22c55e}
+  small{color:var(--sub);display:block;margin-top:4px}
+
+  .bubble{max-width:68%;padding:10px 14px;border-radius:12px;margin:0;line-height:1.45;word-break:break-word;}
+  .bubble.me{margin-left:auto;background: var(--me-bg);color: var(--me-fg);}
+  .bubble.ai{background: var(--ai-bg);color: var(--ai-fg);}
+</style>
+</head>
+
+<body>
+  <div class="app">
+    <!-- LEFT -->
+    <aside class="sidebar">
+      <!-- ✅ โลโก้ PNG โปร่งใส; ถ้าไม่เจอไฟล์ จะ fallback เป็น SVG อัตโนมัติ -->
+      <a class="brand" href="#" aria-label="Home">
+        <img class="logo" id="appLogo" src="/chatbot.png?v=1" alt="App logo"
+             onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,\
+<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 96 96%22> \
+  <defs> \
+    <linearGradient id=%22g1%22 x1=%220%22 y1=%22100%25%22 x2=%22100%25%22 y2=%220%22> \
+      <stop offset=%220%25%22 stop-color=%22#60a5fa%22/> \
+      <stop offset=%22100%25%22 stop-color=%22#6366f1%22/> \
+    </linearGradient> \
+  </defs> \
+  <!-- หัวบอท --> \
+  <rect x=%2212%22 y=%2216%22 rx=%2218%22 ry=%2218%22 width=%2272%22 height=%2256%22 fill=%22url(#g1)%22/> \
+  <rect x=%2224%22 y=%2230%22 rx=%2212%22 ry=%2212%22 width=%2248%22 height=%2230%22 fill=%22#0b1020%22 opacity=%220.75%22/> \
+  <!-- ตา --> \
+  <circle cx=%2238%22 cy=%2245%22 r=%226%22 fill=%22#7dd3fc%22/> \
+  <circle cx=%2258%22 cy=%2245%22 r=%226%22 fill=%22#c084fc%22/> \
+  <!-- ไมค์/หูฟัง --> \
+  <path d=%22M12,46 a10,10 0 0 1 10,-10 h4 v8 h-4 a2,2 0 0 0 -2,2 v8 a2,2 0 0 0 2,2 h6 v8 h-6 a10,10 0 0 1 -10,-10z%22 fill=%22#1e40af%22/> \
+  <path d=%22M84,46 a10,10 0 0 0 -10,-10 h-4 v8 h4 a2,2 0 0 1 2,2 v8 a2,2 0 0 1 -2,2 h-6 v8 h6 a10,10 0 0 0 10,-10z%22 fill=%22#1e3a8a%22/> \
+</svg>';"/>
+      </a>
+
+      <nav class="nav">
+        <div class="item active">💬 AI Chat</div>
+        <div class="item">📁 Projects</div>
+        <div class="item">🧩 Templates</div>
+        <div class="item">📄 Documents</div>
+        <div class="item">👥 Community</div>
+        <div class="item">🕘 History</div>
+      </nav>
+      <div class="spacer"></div>
+
+      <div class="theme">
+        <div class="theme-toggle">
+          <div class="icons">
+            <span class="off">☀️ Light</span>
+            <span class="on">🌙 Dark</span>
+          </div>
+          <button id="themeSwitch" class="switch" aria-label="Toggle theme" aria-pressed="false">
+            <span class="thumb"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="avatar"></div>
+        <div>
+          <div style="font-weight:600">Wanwarin</div>
+          <small>ILoVemyJob@gmail.com</small>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER -->
+    <main class="center">
+      <div class="topbar">AI Chat</div>
+      <section class="stage">
+        <div class="welcome" id="welcome">
+          <h1>สวัสดี Wanwarin</h1>
+        </div>
+
+        <div class="messages" id="messages"></div>
+
+        <div class="inputbar">
+          <div class="input-top">
+            <input id="prompt" placeholder="พิมพ์ข้อความของคุณ..." onkeydown="keySend(event)" />
+            <button class="send" onclick="send()">➤</button>
+          </div>
+          <div class="input-sep"></div>
+          <div class="input-tools">
+            <button class="tool"><span class="ico">📎</span>Attach</button>
+            <button class="tool"><span class="ico">🎙️</span>Voice Message</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- RIGHT -->
+    <aside class="right">
+      <h4>Projects</h4>
+      <div class="row">
+        <div class="meta"><div class="dot"></div> New Project</div>
+        <small>เริ่มโปรเจกต์ใหม่</small>
+      </div>
+    </aside>
+  </div>
+
+<script>
+  const promptEl   = document.getElementById('prompt');
+  const messagesEl = document.getElementById('messages');
+  const welcomeEl  = document.getElementById('welcome');
+  const themeSwitch = document.getElementById('themeSwitch');
+
+  function keySend(e){
+    if(e.key==='Enter' && !e.shiftKey){
+      e.preventDefault();
+      send();
+    }
+  }
+  function appendBubble(text, who='me'){
+    const div = document.createElement('div');
+    div.className = `bubble ${who}`;
+    div.textContent = text;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+  let scrollTimer=null;
+  messagesEl.addEventListener('scroll', () => {
+    messagesEl.classList.add('scrolling');
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(()=>messagesEl.classList.remove('scrolling'), 150);
+  });
+
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    themeSwitch.setAttribute('aria-pressed', t === 'dark');
+    localStorage.setItem('theme', t);
+  }
+  (function initTheme(){
+    const saved = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(saved || (prefersDark ? 'dark' : 'light'));
+  })();
+  themeSwitch.addEventListener('click', () => {
+    const cur = document.documentElement.getAttribute('data-theme') || 'light';
+    applyTheme(cur === 'light' ? 'dark' : 'light');
+  });
+
+  async function send() {
+    const t = promptEl.value.trim();
+    if (!t) return;
+    if (welcomeEl && welcomeEl.style.display !== 'none') welcomeEl.style.display = 'none';
+    appendBubble(t, 'me');
+    promptEl.value = '';
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: t })
+      });
+      const data = await res.json();
+      appendBubble(data.reply || '(ไม่มีการตอบกลับ)', 'ai');
+    } catch (err) {
+      appendBubble('(เกิดข้อผิดพลาด: เชื่อมต่อ LM Studio ไม่ได้)', 'ai');
+    }
+  }
+</script>
+</body>
+</html>
