@@ -101,7 +101,7 @@ function expandQueryIfWhoAmI(originalMsg,userHint){
 // ---------- KB ----------
 let KB = { chunks: [], tfidf: new natural.TfIdf() };
 function readTextFile(fp){
-  const raw = fs.readFileSync(fp, "utf-8"); // <-- แก้บั๊ก utf-8
+  const raw = fs.readFileSync(fp, "utf-8"); // แก้บั๊ก utf-8
   return normalizeTH(fp.toLowerCase().endsWith(".md") ? removeMd(raw) : raw);
 }
 function buildIndex(){
@@ -158,6 +158,13 @@ app.post("/api/chat", async (req, res) => {
   const quick = quickReplyIfAny(msg);
   if (quick) return res.json({ reply: quick });
 
+  const normalized = normalizeTH(msg);
+
+  // ✅ NEW: “บริษัท TRANSDEV.CO.TH คือบริษัทอะไร” → ดึงจาก KB (เช่น company_notes.md)
+  const isAskCompany =
+    /บริษัท\s*transdev\.co\.th.*(?:คือ(?:บริษัท)?อะไร|คืออะไร)?\??$/i.test(normalized) ||
+    /^บริษัท\s*transdev\.co\.th$/i.test(normalized);
+
   const askedWho = parseWhoIs(msg);
 
   // ✅ "ฉันคือใคร" → ตอบสั้น 1 บรรทัด
@@ -177,26 +184,39 @@ app.post("/api/chat", async (req, res) => {
   const maxOverlap = hits.length ? Math.max(...hits.map(h => h.overlap)) : 0;
   const strictKB = maxOverlap >= STRICT_THRESHOLD;
 
-  console.log("🧩 Context sources:", hits.map(h => h.source), "| strictKB:", strictKB, "| maxOverlap:", maxOverlap, "| expanded:", expandedMsg !== msg, "| askedWho:", askedWho || "-");
+  console.log("🧩 Context sources:", hits.map(h => h.source), "| strictKB:", strictKB, "| maxOverlap:", maxOverlap, "| expanded:", expandedMsg !== msg, "| askedWho:", askedWho || "-", "| askCompany:", !!isAskCompany);
 
-  // ✅ "ใครคือ <ชื่อ>" → คืน "โปรไฟล์เต็ม" จากไฟล์ KB (ไม่ใช้ _memory_notes.txt)
+  // ✅ ถามบริษัท TRANSDEV → คืน “ข้อความเต็มจากไฟล์ KB” (เช่น company_notes.md), ไม่ใช้ _memory_notes.txt
+  if (isAskCompany) {
+    let companyDoc = (hits || []).find(h => !isMemoryNotes(h.source) && /transdev\.co\.th/i.test(h.text));
+    if (!companyDoc) {
+      companyDoc = (KB.chunks || []).find(c => !isMemoryNotes(c.source) && /transdev\.co\.th/i.test(c.text));
+    }
+    if (companyDoc) {
+      return res.json({
+        reply: companyDoc.text.trim(),
+        meta: { mode: "COMPANY_PROFILE", source: `${companyDoc.source}#${companyDoc.idx || 0}` }
+      });
+    }
+    // ถ้าไม่พบในไฟล์ ปล่อยไปขั้นตอนต่อไป (KB deterministic / LLM)
+  }
+
+  // ✅ "ใครคือ <ชื่อ>" → คืน “โปรไฟล์เต็ม” จากไฟล์ KB (ไม่ใช้ _memory_notes.txt)
   if (askedWho) {
-    // 1) พยายามหาใน hits ก่อน
     let profileDoc = (hits || []).find(h => !isMemoryNotes(h.source) && h.text && h.text.includes(askedWho));
-    // 2) ถ้าไม่เจอ ให้ค้นทั้ง KB เผื่อ TOP_K ตัดทิ้ง
     if (!profileDoc) {
       profileDoc = (KB.chunks || []).find(c => !isMemoryNotes(c.source) && c.text && c.text.includes(askedWho));
     }
     if (profileDoc) {
       learnSelfName(askedWho);
       return res.json({
-        reply: profileDoc.text.trim(), // โปรไฟล์เต็มตามไฟล์
+        reply: profileDoc.text.trim(),
         meta: { mode: "WHOIS_PROFILE", source: `${profileDoc.source}#${profileDoc.idx || 0}` }
       });
     }
   }
 
-  // 2) ถ้าเจอ KB ชัดเจน → ตอบแบบสไนเป็ต (กัน memory notes แล้วในเคส WHOIS ข้างบน)
+  // 2) ถ้าเจอ KB ชัดเจน → ตอบแบบสไนเป็ต
   if (strictKB && hits.length) {
     const best = hits[0];
     const snippet = extractSnippet(expandedMsg, best.text);
