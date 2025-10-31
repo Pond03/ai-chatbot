@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="th" data-theme="light">
 <head>
 <meta charset="UTF-8" />
@@ -142,7 +142,6 @@
   <div class="app">
     <!-- LEFT -->
     <aside class="sidebar">
-      <!-- ✅ โลโก้ PNG โปร่งใส; ถ้าไม่เจอไฟล์ จะ fallback เป็น SVG อัตโนมัติ -->
       <a class="brand" href="#" aria-label="Home">
         <img class="logo" id="appLogo" src="/chatbot.png?v=1" alt="App logo"
              onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,\
@@ -153,16 +152,13 @@
       <stop offset=%22100%25%22 stop-color=%22#6366f1%22/> \
     </linearGradient> \
   </defs> \
-  <!-- หัวบอท --> \
   <rect x=%2212%22 y=%2216%22 rx=%2218%22 ry=%2218%22 width=%2272%22 height=%2256%22 fill=%22url(#g1)%22/> \
   <rect x=%2224%22 y=%2230%22 rx=%2212%22 ry=%2212%22 width=%2248%22 height=%2230%22 fill=%22#0b1020%22 opacity=%220.75%22/> \
-  <!-- ตา --> \
   <circle cx=%2238%22 cy=%2245%22 r=%226%22 fill=%22#7dd3fc%22/> \
   <circle cx=%2258%22 cy=%2245%22 r=%226%22 fill=%22#c084fc%22/> \
-  <!-- ไมค์/หูฟัง --> \
   <path d=%22M12,46 a10,10 0 0 1 10,-10 h4 v8 h-4 a2,2 0 0 0 -2,2 v8 a2,2 0 0 0 2,2 h6 v8 h-6 a10,10 0 0 1 -10,-10z%22 fill=%22#1e40af%22/> \
   <path d=%22M84,46 a10,10 0 0 0 -10,-10 h-4 v8 h4 a2,2 0 0 1 2,2 v8 a2,2 0 0 1 -2,2 h-6 v8 h6 a10,10 0 0 0 10,-10z%22 fill=%22#1e3a8a%22/> \
-</svg>';"/>
+</svg>';" />
       </a>
 
       <nav class="nav">
@@ -242,6 +238,7 @@
       send();
     }
   }
+
   function appendBubble(text, who='me'){
     const div = document.createElement('div');
     div.className = `bubble ${who}`;
@@ -249,6 +246,7 @@
     messagesEl.appendChild(div);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
+
   let scrollTimer=null;
   messagesEl.addEventListener('scroll', () => {
     messagesEl.classList.add('scrolling');
@@ -261,27 +259,38 @@
     themeSwitch.setAttribute('aria-pressed', t === 'dark');
     localStorage.setItem('theme', t);
   }
+
   (function initTheme(){
     const saved = localStorage.getItem('theme');
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     applyTheme(saved || (prefersDark ? 'dark' : 'light'));
   })();
+
   themeSwitch.addEventListener('click', () => {
     const cur = document.documentElement.getAttribute('data-theme') || 'light';
     applyTheme(cur === 'light' ? 'dark' : 'light');
   });
 
+  // ✅ ฟังก์ชันส่งข้อความ พร้อมส่ง user_hint จากชื่อใน footer
   async function send() {
     const t = promptEl.value.trim();
     if (!t) return;
-    if (welcomeEl && welcomeEl.style.display !== 'none') welcomeEl.style.display = 'none';
+
+    if (welcomeEl && welcomeEl.style.display !== 'none') {
+      welcomeEl.style.display = 'none';
+    }
+
     appendBubble(t, 'me');
     promptEl.value = '';
+
+    // ดึงชื่อผู้ใช้จาก footer
+    const userHint = (document.querySelector('.footer div div')?.textContent || '').trim() || 'Wanwarin';
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: t })
+        body: JSON.stringify({ message: t, user_hint: userHint })
       });
       const data = await res.json();
       appendBubble(data.reply || '(ไม่มีการตอบกลับ)', 'ai');
